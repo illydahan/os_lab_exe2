@@ -18,8 +18,9 @@ int main() {
 	int flag = 0;
 	//a critical place. when a thread searches for an account in this 
 	account* the_account;
+	int ID1 = atoi(command_sep[1].c_str());
 	for (account index : account_vec) {
-		if (index.ID = (int)command_sep[1].c_str()) {
+		if (index.ID = ID1) {
 			flag = 1;
 			the_account = &index;
 			break;
@@ -31,7 +32,7 @@ int main() {
 			//add here the call to the function.
 			//then, return SUCCESS
 		}
-		std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed – account id ";
+		std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed ï¿½ account id ";
 		std::cout << command_sep[1] << "does not exist" << std::endl;
 		return 1;
 	}
@@ -39,37 +40,43 @@ int main() {
 
 	//here we know that the account exists, and we search for its command
 	if (!strcmp(command_sep[0].c_str(), (const char*)'O')) {
-		std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed – account with same id exists";
+		std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed ï¿½ account with same id exists";
 		std::cout << std::endl;
 		return 1;
 	}
 	if (!strcmp(command_sep[0].c_str(), (const char*)'D')) {
-		if (!Deposit(*the_account, (int)command_sep[2].c_str(), (int)command_sep[3].c_str())) {
+		int password = atoi(command_sep[2].c_str());
+		int amount = atoi(command_sep[3].c_str());
+		if (!Deposit(*the_account, password, amount)) {
 			return 0;
 		}
 		return 1;
 	}
 	if (!strcmp(command_sep[0].c_str(), (const char*)'B')) {
-		if (!Balance(*the_account, (int)command_sep[2].c_str())) {
+		int password = atoi(command_sep[2].c_str());
+		if (!Balance(*the_account, password)) {
 			return 0;
 		}
 		return 1;
 	}
 	if (!strcmp(command_sep[0].c_str(), (const char*)'T')) {
 		account* other_account;
+		int ID2 = atoi(command_sep[3].c_str());
 		for (account index : account_vec) {
-			if (index.ID = (int)command_sep[1].c_str()) {
+			if (index.ID = ID2) {
 				flag = 1;
 				other_account = &index;
 				break;
 			}
 		}
 		if (flag != 1) {
-			std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed – account id ";
+			std::cout << "Error " << "ATM ID TO HERE PLEASE" << ": Your transaction failed ï¿½ account id ";
 			std::cout << command_sep[1] << "does not exist" << std::endl;
 			return 1;
 		}
-		if (!Transfer(*the_account, (int)command_sep[2].c_str(), *other_account, (int)command_sep[4].c_str())) {
+		int password = atoi(command_sep[2].c_str());
+		int amount = atoi(command_sep[4].c_str());
+		if (!Transfer(*the_account, password, *other_account, amount)) {
 			return 0;
 		}
 		return 1;
