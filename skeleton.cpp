@@ -81,8 +81,9 @@ int main() {
 		}
 		return 1;
 	}
-	delete &command_sep;
+	delete& command_sep;
 	delete& account_vec;
+
 }
 
 
