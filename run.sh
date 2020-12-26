@@ -1,0 +1,1 @@
+./Bank 4 tests/atm_1 tests/atm_2 tests/atm_3 tests/atm_4
