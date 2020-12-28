@@ -7,7 +7,7 @@
 #include "ATM.h"
 
 
-#define LOG_FILE ".log.txt"
+#define LOG_FILE "log.txt"
 
 //declaring functions in the main. may be moved.
 void HandleInputLine(std::string inputLine, std::vector<std::string>& command_sep);
@@ -46,6 +46,13 @@ int main(int argc, char *argv[]) {
 	// here we will store all the 
 	std::vector<pthread_t> threadsLst = std::vector<pthread_t>();
 
+	// all the possible commands
+	std::string possible_commands[] = {std::string("O"), 
+										std::string("D"), 
+										std::string("W"), 
+										std::string("B") ,
+										std::string("Q") ,
+										std::string("T")};
 
 	uint atm_number = atoi(argv[1]);
 	if(atm_number < 1) {
@@ -83,74 +90,86 @@ int main(int argc, char *argv[]) {
 		HandleInputLine(command , command_sep);
 
 		pthread_t current_thread;
-
 		threadsLst.push_back(current_thread);
+		
 
 		// arguments that will be sent to each thread.
-		threadArgs args = {};
-		args.logObj = logger;
-		args.dataLock = dataLock;
-		args.logLock = &logLock;
-		args.atmID = index + 1;
-		args.myAccounts = account_vec;
+		threadArgs *args = (threadArgs *)malloc(sizeof(threadArgs));
+		args->logObj = logger;
+		args->dataLock = dataLock;
+		args->logLock = &logLock;
+		args->atmID = index + 1;
+		args->myAccounts = &account_vec;
+		
 
-		if (!strcmp(command_sep[0].c_str(), (const char*)'O')) {
+		if (command_sep[0] == std::string("O")) {
 			// create new account
-			account target_account;
-			target_account.ID = atoi(command_sep[1].c_str());
-			target_account.password = atoi(command_sep[2].c_str());
-			target_account.remainer = atoi(command_sep[3].c_str());
-			args.targetAccount = target_account;
-			pthread_create(&current_thread, NULL, &ATM::openAccout, (void *)&args);
+			account *target_account = (account *)malloc(sizeof(account));
+			target_account->ID = atoi(command_sep[1].c_str());
+			target_account->password = atoi(command_sep[2].c_str());
+			target_account->remainer = atoi(command_sep[3].c_str());
+			args->targetAccount = target_account;
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::openAccout, (void *)args);
 			
 		}
-		else if (!strcmp(command_sep[0].c_str(), (const char*)'D')) {
+		else if (command_sep[0] == std::string("D")) {
 			
-			args.ID = atoi(command_sep[1].c_str());
-			args.password = atoi(command_sep[2].c_str());
-			args.amount = atoi(command_sep[3].c_str());
+			args->ID = atoi(command_sep[1].c_str());
+			args->password = atoi(command_sep[2].c_str());
+			args->amount = atoi(command_sep[3].c_str());
 
-			pthread_create(&current_thread, NULL, &ATM::Deposit, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Deposit, (void *)&args);
 			
 		}
-		else if (!strcmp(command_sep[0].c_str(), (const char*)'W')) {
-			args.ID = atoi(command_sep[1].c_str());
-			args.password = atoi(command_sep[2].c_str());
-			args.amount = atoi(command_sep[3].c_str());
+		else if (command_sep[0] == std::string("W")) {
+			args->ID = atoi(command_sep[1].c_str());
+			args->password = atoi(command_sep[2].c_str());
+			args->amount = atoi(command_sep[3].c_str());
 
-			pthread_create(&current_thread, NULL, &ATM::Withdrew, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Withdrew, (void *)&args);
 		}
-		else if (!strcmp(command_sep[0].c_str(), (const char*)'B')) {
-			args.ID = atoi(command_sep[1].c_str());
-			args.password = atoi(command_sep[2].c_str());
+		else if (command_sep[0] == std::string("B")) {
+			args->ID = atoi(command_sep[1].c_str());
+			args->password = atoi(command_sep[2].c_str());
 			
-			pthread_create(&current_thread, NULL, &ATM::Balance, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Balance, (void *)&args);
 		}
-		else if (!strcmp(command_sep[0].c_str(), (const char*)'Q')) {
-			args.ID = atoi(command_sep[1].c_str());
-			args.password = atoi(command_sep[2].c_str());
+		else if (command_sep[0] == std::string("Q")) {
+			args->ID = atoi(command_sep[1].c_str());
+			args->password = atoi(command_sep[2].c_str());
 			
-			pthread_create(&current_thread, NULL, &ATM::closeAccount, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::closeAccount, (void *)&args);
 
 		}
-		else if (!strcmp(command_sep[0].c_str(), (const char*)'T')) {
+		else if (command_sep[0] == std::string("T")) {
 			
-			args.ID = atoi(command_sep[1].c_str());
-			args.password = atoi(command_sep[2].c_str());
-			args.targetID = atoi(command_sep[3].c_str());
-			args.amount = atoi(command_sep[4].c_str());
+			args->ID = atoi(command_sep[1].c_str());
+			args->password = atoi(command_sep[2].c_str());
+			args->targetID = atoi(command_sep[3].c_str());
+			args->amount = atoi(command_sep[4].c_str());
 			
-			pthread_create(&current_thread, NULL, &ATM::Transfer, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Transfer, (void *)&args);
 		}
 
 		// reset loop
 		if(atm_number == atm_number - 1) {
 			atm_number = 0;
 		}
+
+		
 	}
 
-	delete& command_sep;
-	delete& account_vec;
+	// wait for all the threads to finish
+	// TODO: check return value
+	std::cout << "active threads: "<< threadsLst.size() << std::endl;
+	for(pthread_t thread : threadsLst) {
+		pthread_join(thread, NULL);
+	}
+	return 0;
+
+
+	//delete& command_sep;
+	//delete& account_vec;
 }	
 
 

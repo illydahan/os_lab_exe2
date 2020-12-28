@@ -33,9 +33,9 @@ void * ATM::openAccout(void *args)
 	// Here we will check for existing account with the same ID.
 
 	dataLock->lockRead();
-	for (account index : argsPtr->myAccounts)
+	for (account index : *argsPtr->myAccounts)
 	{
-		if (argsPtr->targetAccount.ID == index.ID)	{
+		if (argsPtr->targetAccount->ID == index.ID)	{
 			pthread_mutex_lock(logLock);
 			log->logAccountOpen(ACCOUNT_EXISTS, args);
 			pthread_mutex_unlock(logLock);
@@ -45,7 +45,7 @@ void * ATM::openAccout(void *args)
 	}
 	dataLock->unlockRead();
 
-	if (argsPtr->targetAccount.remainer < 0) {
+	if (argsPtr->targetAccount->remainer < 0) {
 		pthread_mutex_lock(logLock);
 		log->logAccountOpen(WITHDREW_OVERFLOW, args);
 		pthread_mutex_unlock(logLock);
@@ -54,7 +54,7 @@ void * ATM::openAccout(void *args)
 
 	// add new account to the account vector buffer.
 	dataLock->lockWrite();
-	argsPtr->myAccounts.push_back(argsPtr->targetAccount);
+	(*argsPtr->myAccounts).push_back(*argsPtr->targetAccount);
 	dataLock->unlockWrite();
 	
 	pthread_mutex_lock(logLock);
@@ -78,7 +78,7 @@ void * ATM::Deposit(void *args) {
 	account the_account;
 	
 	argsPtr->dataLock->lockRead();
-	accountAvailible(argsPtr->myAccounts, the_account, argsPtr->ID);
+	accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
 	int check = the_account.password;
 	argsPtr->dataLock->unlockRead();
 
@@ -90,7 +90,7 @@ void * ATM::Deposit(void *args) {
 	}
 
 	argsPtr->dataLock->lockWrite();
-	argsPtr->theAccount.remainer += argsPtr->amount;
+	argsPtr->theAccount->remainer += argsPtr->amount;
 	argsPtr->dataLock->unlockWrite();
 
 	pthread_mutex_lock(argsPtr->logLock);
@@ -110,7 +110,7 @@ void * ATM::Withdrew(void *args) {
 	account the_account;
 	
 	argsPtr->dataLock->lockRead();
-	accountAvailible(argsPtr->myAccounts, the_account, argsPtr->ID);
+	accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
 	int check = the_account.password;
 	argsPtr->dataLock->unlockRead();
 	
@@ -120,7 +120,7 @@ void * ATM::Withdrew(void *args) {
 		pthread_mutex_unlock(argsPtr->logLock);
 		return (void *) RET_FAILURE;
 	}
-	if(argsPtr->theAccount.remainer < argsPtr->amount) {
+	if(argsPtr->theAccount->remainer < argsPtr->amount) {
 		pthread_mutex_lock(argsPtr->logLock);
 		argsPtr->logObj->logWithdrew(WITHDREW_OVERFLOW, args);
 		pthread_mutex_unlock(argsPtr->logLock);
@@ -129,7 +129,7 @@ void * ATM::Withdrew(void *args) {
 
 
 	argsPtr->dataLock->lockWrite();
-	argsPtr->theAccount.remainer -= argsPtr->amount;
+	argsPtr->theAccount->remainer -= argsPtr->amount;
 	argsPtr->dataLock->unlockWrite();
 	pthread_mutex_lock(argsPtr->logLock);
 	argsPtr->logObj->logWithdrew(SUCCESS, args);
@@ -151,7 +151,7 @@ void * ATM::Balance(void *args){
 	account the_account;
 	
 	argsPtr->dataLock->lockRead();
-	accountAvailible(argsPtr->myAccounts, the_account, argsPtr->ID);
+	accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
 	int check = the_account.password;
 	argsPtr->dataLock->unlockRead();
 
@@ -179,7 +179,7 @@ void * ATM::closeAccount(void *args) {
 	account the_account;
 	
 	argsPtr->dataLock->lockRead();
-	int index = accountAvailible(argsPtr->myAccounts, the_account, argsPtr->ID);
+	int index = accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
 	int check = the_account.password;
 	argsPtr->dataLock->unlockRead();
 
@@ -191,7 +191,7 @@ void * ATM::closeAccount(void *args) {
 	}
 
 
-	argsPtr->myAccounts.erase(argsPtr->myAccounts.begin() + index);
+	(*argsPtr->myAccounts).erase((*argsPtr->myAccounts).begin() + index);
 	return (void *) RET_SUCESS;
 
 }
@@ -211,8 +211,8 @@ void * ATM::Transfer(void *args){
 	account the_account, target_account;
 	
 	argsPtr->dataLock->lockRead();
-	accountAvailible(argsPtr->myAccounts, the_account, argsPtr->ID);
-	accountAvailible(argsPtr->myAccounts, target_account, argsPtr->targetID);
+	accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
+	accountAvailible(*argsPtr->myAccounts, target_account, argsPtr->targetID);
 	bool check = the_account.password != argsPtr->password ? true : false;
 	argsPtr->dataLock->unlockRead();
 
@@ -224,7 +224,7 @@ void * ATM::Transfer(void *args){
 	}
 
 	argsPtr->dataLock->lockRead();
-	check = argsPtr->theAccount.remainer < argsPtr->amount ? true : false;
+	check = argsPtr->theAccount->remainer < argsPtr->amount ? true : false;
 	argsPtr->dataLock->unlockRead();
 	
 	if (check) {

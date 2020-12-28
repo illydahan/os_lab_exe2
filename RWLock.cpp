@@ -19,7 +19,7 @@ RWLock::~RWLock()
 
 void RWLock::lockRead()
 {
-    pthread_mutex_lock(this->readerLock);
+    pthread_mutex_lock(readerLock);
 }
 
 void RWLock::unlockRead() 
@@ -35,5 +35,5 @@ void RWLock::lockWrite()
 
 void RWLock::unlockWrite()
 {
-    pthread_mutex_unlock(this->writerLock);
+    pthread_mutex_unlock(writerLock);
 }

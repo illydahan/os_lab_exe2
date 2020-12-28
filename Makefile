@@ -7,7 +7,7 @@ CXXFLAGS = -g -Wall -std=c++11  -Werror -pedantic-errors -DNDEBUG
 LDFLAGS = -pthread -lpthread
 
 CCLINK = $(CC)
-
+ 
 RM = rm -rf
 
 OBJS = RWLock.o ATM.o Logger.o Bank.o

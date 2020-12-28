@@ -3,7 +3,10 @@
 #include <pthread.h>
 #include <string.h>
 #include <vector>
+#include <unistd.h>
 #include "RWLock.h"
+#define PATH_MAX 512
+
 
 #define SUCCESS           0
 #define ACCOUNT_EXISTS    1
@@ -42,9 +45,9 @@ typedef struct account {
 } account;
 
 typedef struct threadArgs {
-	std::vector<account> myAccounts;
-	account theAccount;
-	account targetAccount;
+	std::vector<account> *myAccounts;
+	account *theAccount;
+	account *targetAccount;
 	RWLock *dataLock;
 	pthread_mutex_t *logLock;
 	Logger *logObj;
