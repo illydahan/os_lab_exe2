@@ -2,6 +2,7 @@
 //********************************************
 
 #include <string.h>
+#include <cstring>
 #include <iostream>
 #include "ATM.h"
 
@@ -155,20 +156,20 @@ int main(int argc, char *argv[]) {
 
 void HandleInputLine(std::string inputLine, std::vector<std::string>& command_sep)
 {
-	const char* delimiters = " \t\n";
-	const char *eof = "\0";
-	char* Command = (char*)inputLine.c_str();
-	const char* cmd = strtok(Command, delimiters);
-	char* account = strtok(NULL, delimiters);
-	char* arg;
-	command_sep.push_back(cmd);
-	command_sep.push_back(account);
+	const char 	*delimiters = " \t\n";
+	char 		*Command = (char*)inputLine.c_str();
+	const char  *cmd = strtok(Command, delimiters);
+	char 		*account = strtok(NULL, delimiters);
+	char 		*arg;
+	command_sep.push_back(std::string(cmd));
+	command_sep.push_back(std::string(account));
 	do
 	{
-		arg = strtok(NULL, delimiters);
-		if (strcmp(arg, eof)) {
-			command_sep.push_back(arg);
+		arg = std::strtok(NULL, delimiters);
+		if(arg != '\0')
+		{
+			command_sep.push_back(std::string(arg));
 		}
-	} while (strcmp(arg, eof));
+	}while(arg != '\0');
 
 }
