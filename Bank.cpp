@@ -4,6 +4,7 @@
 #include <string.h>
 #include <cstring>
 #include <iostream>
+#include <chrono>
 #include "ATM.h"
 
 
@@ -14,6 +15,8 @@ void HandleInputLine(std::string inputLine, std::vector<std::string>& command_se
 
 
 int main(int argc, char *argv[]) {
+
+	auto start = std::chrono::system_clock::now();
 
 	if(argc < 3) {
 		std::cout << "usage: ./Bank N file1 file2.." << std::endl;
@@ -35,10 +38,6 @@ int main(int argc, char *argv[]) {
 
 	// Readers Writers lcoking mechanisem object
 	RWLock *dataLock = new RWLock();
-
-	// Logging file lock.
-	pthread_mutex_t logLock;
-	pthread_mutex_init(&logLock, NULL);
 
 	// An object that will perform logging operations
 	Logger *logger = new Logger(LOG_FILE);
@@ -75,18 +74,22 @@ int main(int argc, char *argv[]) {
 	// main program loop. 
 	// here we'll iterate over the atm objects and execute each atm command
 
-	for(uint index = 0; index < atm_number; index++)
+	// iterate until all the commands have been executed
+	uint currentAtmMachine = 0;
+	while(commandFiles.size() > 0)
 	{
 		std::string command;
-		std::getline(commandFiles.at(index), command);
+		std::getline(commandFiles.at(currentAtmMachine), command);
 
 		
 		if(command.empty()) {
-			commandFiles.at(index).close();
-			commandFiles.erase(commandFiles.begin() + index);
+			commandFiles.at(currentAtmMachine).close();
+			commandFiles.erase(commandFiles.begin() + currentAtmMachine);
+			std::cout << "eof for file: " << currentAtmMachine << std::endl;
 			continue;
 		}
 
+		
 		HandleInputLine(command , command_sep);
 
 		pthread_t current_thread;
@@ -97,8 +100,7 @@ int main(int argc, char *argv[]) {
 		threadArgs *args = (threadArgs *)malloc(sizeof(threadArgs));
 		args->logObj = logger;
 		args->dataLock = dataLock;
-		args->logLock = &logLock;
-		args->atmID = index + 1;
+		args->atmID = currentAtmMachine + 1;
 		args->myAccounts = &account_vec;
 		
 
@@ -118,7 +120,7 @@ int main(int argc, char *argv[]) {
 			args->password = atoi(command_sep[2].c_str());
 			args->amount = atoi(command_sep[3].c_str());
 
-			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Deposit, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Deposit, (void *)args);
 			
 		}
 		else if (command_sep[0] == std::string("W")) {
@@ -126,19 +128,19 @@ int main(int argc, char *argv[]) {
 			args->password = atoi(command_sep[2].c_str());
 			args->amount = atoi(command_sep[3].c_str());
 
-			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Withdrew, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Withdrew, (void *)args);
 		}
 		else if (command_sep[0] == std::string("B")) {
 			args->ID = atoi(command_sep[1].c_str());
 			args->password = atoi(command_sep[2].c_str());
 			
-			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Balance, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Balance, (void *)args);
 		}
 		else if (command_sep[0] == std::string("Q")) {
 			args->ID = atoi(command_sep[1].c_str());
 			args->password = atoi(command_sep[2].c_str());
 			
-			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::closeAccount, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::closeAccount, (void *)args);
 
 		}
 		else if (command_sep[0] == std::string("T")) {
@@ -148,23 +150,34 @@ int main(int argc, char *argv[]) {
 			args->targetID = atoi(command_sep[3].c_str());
 			args->amount = atoi(command_sep[4].c_str());
 			
-			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Transfer, (void *)&args);
+			pthread_create(&threadsLst.at(threadsLst.size() - 1), NULL, &ATM::Transfer, (void *)args);
 		}
-
-		// reset loop
-		if(atm_number == atm_number - 1) {
-			atm_number = 0;
-		}
+		//increment file index
+		currentAtmMachine++;
 
 		
+		// reset file index 
+		if(currentAtmMachine >= commandFiles.size() - 1) {
+			
+			currentAtmMachine = 0;
+		}
+		std::cout << "active files: " << commandFiles.size() << std::endl;
 	}
-
 	// wait for all the threads to finish
 	// TODO: check return value
 	std::cout << "active threads: "<< threadsLst.size() << std::endl;
 	for(pthread_t thread : threadsLst) {
 		pthread_join(thread, NULL);
 	}
+	
+
+	delete logger;
+	//delete& atmVector;
+
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed_seconds = end-start;
+	std::cout << "\n\nTotal running time:\n\n " << elapsed_seconds.count() << std::endl;
+
 	return 0;
 
 
@@ -180,8 +193,11 @@ void HandleInputLine(std::string inputLine, std::vector<std::string>& command_se
 	const char  *cmd = strtok(Command, delimiters);
 	char 		*account = strtok(NULL, delimiters);
 	char 		*arg;
+	// flush the vector
+	command_sep.clear();
 	command_sep.push_back(std::string(cmd));
 	command_sep.push_back(std::string(account));
+	
 	do
 	{
 		arg = std::strtok(NULL, delimiters);

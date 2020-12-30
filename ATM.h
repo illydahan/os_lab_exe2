@@ -16,12 +16,7 @@
 class ATM {
 
 public:
-	// atm constructor
-	ATM(std::string commandsFilePath);
-	// atm destructor
-	~ATM();
-
-	void readLine(std::string& command, std::fstream& commandFile);
+	static void readLine(std::string& command, std::fstream& commandFile);
 	static int accountAvailible(std::vector<account>& account_vec, account& targetAcc, int ID);
 	// Pthread compatible function that perform varius atm operations
 	static void *openAccout(void *args);
@@ -30,7 +25,6 @@ public:
 	static void *Balance(void *args);
 	static void *closeAccount(void *args);
 	static void *Transfer(void *args);
-	
 };
 
 #endif 

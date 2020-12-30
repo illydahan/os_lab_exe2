@@ -4,6 +4,7 @@
 #include <string.h>
 #include <vector>
 #include <unistd.h>
+#include <iostream>
 #include "RWLock.h"
 #define PATH_MAX 512
 
@@ -12,7 +13,6 @@
 #define ACCOUNT_EXISTS    1
 #define WRONG_PASSWORD    2
 #define WITHDREW_OVERFLOW 3
-#define BUFFER_SIZE       512
 
 class Logger {
 
@@ -20,12 +20,13 @@ private:
     std::string logFilePath;
     std::fstream logFileStream;
     pthread_mutex_t *loggerLock;
-    char logBuffer[BUFFER_SIZE];
 
 public:
     // create log file and initilize stream
     Logger(std::string logFilePath);
     ~Logger();
+
+    // lock setter
 
     // Methods that will log varius operations that happend during runtime.
     void logAccountOpen(int status, void *parms);
@@ -35,6 +36,7 @@ public:
     void logAccountClose(int status, void *parms);
     void logTransfer(int status, void *parms);
     void accountDosentExists(void *parms);
+    void accountWrongPassword(void *parms);
 };
 
 

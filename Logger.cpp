@@ -4,38 +4,39 @@
 // create log file and initilize stream
 Logger::Logger(std::string logFilePath)
 {
+    // get the current working directory
     char cwd[PATH_MAX];
     getcwd(cwd, PATH_MAX);
+
+    // allocate logger mutex
     loggerLock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    // init log mutex
     pthread_mutex_init(loggerLock, NULL);
+    // define log file path
     std::string log_file_path = std::string(cwd) + std::string("/log.txt");
-    logFileStream.open(log_file_path,std::fstream::app | std::fstream::out);
-    memset(logBuffer, '\0', BUFFER_SIZE);
+    // open or create if dosent exists, log file.
+    logFileStream.open(log_file_path, std::fstream::out);
+
 }
 
 Logger::~Logger()
 {
-    //delete[] logFileStream;
-    //delete[] logFilePath;
-    //delete[] mutex
-    free(loggerLock);
-    free(logBuffer);
     logFileStream.close();
 }
 
 void Logger::accountDosentExists(void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
-    std::string logMsg = "Error %d: Your transaction failed – account id %d does not exist\n";
-    snprintf(logBuffer, 
-            BUFFER_SIZE, 
-            logMsg.c_str(), 
-            argsPtr->atmID,
-            argsPtr->targetAccount->ID);
+    
+    logFileStream << "Error " << argsPtr->atmID << ": Your transaction failed – account id " << argsPtr->targetAccount->ID;
+    logFileStream << " does not exist\n";
+}
 
-    logFileStream.write(logBuffer,logMsg.length());
-    logFileStream.flush();
-    memset(logBuffer, '\0', BUFFER_SIZE);
+void Logger::accountWrongPassword(void *parms) 
+{
+    threadArgs *argsPtr = (threadArgs *)parms;
+    logFileStream << "Error" <<argsPtr->atmID << " : Your transaction failed –password for account id ";
+    logFileStream << argsPtr->ID << " is incorrect\n";
 }
 
 // Methods that will log varius operations that happend during runtime.
@@ -47,28 +48,12 @@ void Logger::logAccountOpen(int status, void *parms)
     switch (status)
     {
     case ACCOUNT_EXISTS:
-        logMsg = "Error %d: Your transaction failed – can't create account with negative balance\n";
-        snprintf(logBuffer, 
-                logMsg.length(), 
-                logMsg.c_str(), 
-                argsPtr->atmID);
-
-        logFileStream.write(logBuffer, logMsg.length());
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
-        break;
+        accountDosentExists(parms);
+        
     case SUCCESS:
-        snprintf(logBuffer,
-                BUFFER_SIZE,
-                "%d: New account id is %d with password %d and initial balance %d\n",
-                argsPtr->atmID,
-                argsPtr->targetAccount->ID,
-                argsPtr->targetAccount->password,
-                argsPtr->targetAccount->remainer);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << argsPtr->atmID << " : New account id is " << argsPtr->targetAccount->ID;
+        logFileStream << " with password " << argsPtr->targetAccount->password << " and initial balance ";
+        logFileStream << argsPtr->targetAccount->remainer << std::endl;
         break;
     
     default:
@@ -82,37 +67,20 @@ void Logger::logDeposit(int status, void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     pthread_mutex_lock(loggerLock);
-
+    std::string logMsg;
     switch (status)
     {
     case WRONG_PASSWORD:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed –password for account id %d is incorrect\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        accountWrongPassword(parms);
         break;
     case SUCCESS:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "%d: Account %d new balance is %d after %d $ was deposited\n", 
-                argsPtr->atmID,
-                argsPtr->targetAccount->ID,
-                argsPtr->targetAccount->remainer,
-                argsPtr->amount);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << argsPtr->atmID << ": Account ";
+        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->theAccount->remainer;
+        logFileStream << " after " << argsPtr->amount << " $ was deposited\n";
         break;
     default:
         break;
     }
-
     pthread_mutex_unlock(loggerLock);
 }
 
@@ -120,52 +88,28 @@ void Logger::logWithdrew(int status, void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     pthread_mutex_lock(loggerLock);
-
+    std::string logMsg;
     switch (status)
     {
     case WRONG_PASSWORD:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed – password for account id %d is incorrect\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        accountWrongPassword(parms);
         break;
 
     case WITHDREW_OVERFLOW:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed – account id %d balance is lower than %d\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID,
-                argsPtr->amount);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << "Error " << argsPtr->atmID <<": Your transaction failed ";
+        logFileStream <<"– account id " <<argsPtr->theAccount->ID << " balance is lower than";
+        logFileStream <<argsPtr->amount << "\n";
         break;
 
     case SUCCESS:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "%d: Account %d new balance is %d after %d$ was withdrew\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID,
-                argsPtr->theAccount->remainer,
-                argsPtr->amount);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << argsPtr->atmID << ": Account ";
+        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->theAccount->remainer;
+        logFileStream << " after " << argsPtr->amount << " $ was withdrew\n";
         break;
 
     default:
         break;
     }
-
     pthread_mutex_unlock(loggerLock);
 }
 
@@ -173,32 +117,16 @@ void Logger::logBalance(int status, void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     pthread_mutex_lock(loggerLock);
-
+    std::string logMsg;
     switch (status)
     {
     case WRONG_PASSWORD:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed –password for account id %d is incorrect\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        accountWrongPassword(parms);
         break;
 
     case SUCCESS:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "%d: Account %d balance is %d\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID,
-                argsPtr->theAccount->remainer);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << argsPtr->atmID <<" : Account "<< argsPtr->ID;
+        logFileStream << " balance is " << argsPtr->theAccount->remainer << "\n";
         break;
 
     default:
@@ -211,38 +139,20 @@ void Logger::logAccountClose(int status, void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     pthread_mutex_lock(loggerLock);
-
+    std::string logMsg;
     switch (status)
     {
     case WRONG_PASSWORD:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed –password for account id %d is incorrect\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
-        break;
+        accountWrongPassword(parms);
     
     case SUCCESS:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "%d: Account %d is now closed. Balance was %d\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID,
-                argsPtr->theAccount->remainer);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream << argsPtr->atmID << ": Account " << argsPtr->ID << " is now closed. Balance was ";
+        logFileStream << argsPtr->theAccount->remainer << " \n";
         break;
     
     default:
         break;
     }
-
     pthread_mutex_unlock(loggerLock);
 }
 
@@ -250,50 +160,23 @@ void Logger::logTransfer(int status, void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     pthread_mutex_lock(loggerLock);
-
+    std::string logMsg;
     switch (status)
     {
     case WRONG_PASSWORD:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed –password for account id %d is incorrect\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
-        break;
+        accountWrongPassword(parms);
     
     case WITHDREW_OVERFLOW:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "Error %d: Your transaction failed – account id %d balance is lower than %d\n", 
-                argsPtr->atmID,
-                argsPtr->theAccount->ID,
-                argsPtr->amount);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream <<"Error " << ": Your transaction failed – account id ";
+        logFileStream << argsPtr->theAccount->ID <<" balance is lower than " << argsPtr->amount << " \n";
         break;
     
     case SUCCESS:
-        snprintf(logBuffer, 
-                BUFFER_SIZE, 
-                "%d: Transfer %d from account %d to account " \
-                "%d new account balance is %d " \
-                "new target account balance is %d\n", 
-                argsPtr->atmID,
-                argsPtr->amount,
-                argsPtr->theAccount->ID,
-                argsPtr->targetAccount->ID,
-                argsPtr->theAccount->remainer,
-                argsPtr->targetAccount->remainer);
-
-        logFileStream.write(logBuffer, sizeof(logBuffer));
-        logFileStream.flush();
-        memset(logBuffer, '\0', BUFFER_SIZE);
+        logFileStream <<argsPtr->atmID <<": Transfer "<< argsPtr->amount;
+        logFileStream << " from account " << argsPtr->theAccount->ID <<" to account ";
+        logFileStream << argsPtr->theAccount->ID << " new account balance is ";
+        logFileStream << argsPtr->theAccount->remainer << " new target account balance is  ";
+        logFileStream << argsPtr->targetAccount->remainer << " \n"; 
         break;
     
     default:
