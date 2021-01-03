@@ -250,6 +250,7 @@ void * ATM::closeAccount(void *args) {
 		return (void *) ret;
 	}
 	
+	RWLock* Delete_Lock = &(argsPtr->myAccounts->at(index).accountLock);
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
 	argsPtr->amount = argsPtr->myAccounts->at(index).remainer;
 	argsPtr->myAccounts->at(index).accountLock->leaveRead();
@@ -257,6 +258,7 @@ void * ATM::closeAccount(void *args) {
 	argsPtr->globalLock->enterWrite();
 	sleep(1);
 	
+	delete Delete_Lock;
 	argsPtr->myAccounts->erase(argsPtr->myAccounts->begin() + index);
 	argsPtr->globalLock->leaveWrite();
 	argsPtr->logObj->logAccountClose(SUCCESS, args);
