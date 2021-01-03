@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
 
 	// A vector that stores all the command files
 	std::vector<std::fstream> commandFiles = std::vector<std::fstream>();
+	//does the program know to delete fstreams automatically?
 
 	// An object that will perform logging operations
 	Logger *logger = new Logger();
@@ -74,6 +75,7 @@ int main(int argc, char *argv[]) {
 
 
 	// all the possible commands
+	//this will probably be deleted automatically, right?
 	std::string possible_commands[] = {std::string("O"), 
 										std::string("D"), 
 										std::string("W"), 
@@ -124,6 +126,7 @@ int main(int argc, char *argv[]) {
 						// eof for some file.. leave atmindex the same
 						commandFiles.at(atmIndex).close();
 						commandFiles.erase(commandFiles.begin() + atmIndex);
+			//are we certain that this algorithm deletes the correct file?
 						std::cout << "eof for file: " << atmIndex << std::endl;
 						std::cout << "num of files: " << commandFiles.size() << std::endl;
 						atmIndex--;
@@ -220,6 +223,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	delete logger;
+	delete globalLock;
+	while (account_vec.size() > 0) {
+		account* temp = account_vec.begin();
+		delete temp->accountLock;
+		account_vec.erase(account_vec.begin());
+	}
 
 	auto end = std::chrono::system_clock::now();
 	std::chrono::duration<double> elapsed_seconds = end - start;
