@@ -7,12 +7,13 @@
 #include <cstdlib>
 #include <iostream>
 #include <chrono>
+#include <errno.h>
 #include "ATM.h"
 
 // here we will store all the threads
-static std::vector<pthread_t> threadsLst = std::vector<pthread_t>();
+std::vector<pthread_t> threadsLst = std::vector<pthread_t>();
 // allocated threads-related memory(..arguments).
-static std::vector<void *> allocated_mem = std::vector<void *>();
+std::vector<void *> allocated_mem = std::vector<void *>();
 
 
 //declaring functions in the main. may be moved.
@@ -99,7 +100,7 @@ int main(int argc, char *argv[]) {
 	// main thread scheduler. will wake up ATM every 100ms, Bank every 3s and snapshot every 0.5s
 
 
-	while(commandFiles.size() > 0) {
+	while(commandFiles.size() > 0 || threadsLst.size() > 0) {
 		auto sched_time = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = sched_time - sched_start;
 		//std::cout << "current time: " << elapsed_seconds.count() << std::endl;
@@ -111,36 +112,60 @@ int main(int argc, char *argv[]) {
 			
 			// more commands left.. create new thread
 			uint atmIndex;
-			for(atmIndex = 0; atmIndex < commandFiles.size(); atmIndex++)
+			bool isProcessedCmd = false;
+			if(commandFiles.size() > 0)
 			{
-				if(!ProcessCommand(commandFiles, atmIndex, command_sep)){
-					// eof for some file.. leave atmindex the same
-					commandFiles.at(atmIndex).close();
-					commandFiles.erase(commandFiles.begin() + atmIndex);
-					std::cout << "eof for file: " << atmIndex << std::endl;
-					std::cout << "num of files: " << commandFiles.size() << std::endl;
-					atmIndex--;
-					continue;
-					
-				}
-				else
+				// commands left..
+				for(atmIndex = 0; atmIndex < commandFiles.size(); atmIndex++)
 				{
-					executeAtmOperation
-					(
-						account_vec,
-						command_sep,
-						atmThreads,
-						logger,
-						atmIndex,
-						globalLock
-					);
+
+					isProcessedCmd = ProcessCommand(commandFiles, atmIndex, command_sep);
+					if(!isProcessedCmd){
+						// eof for some file.. leave atmindex the same
+						commandFiles.at(atmIndex).close();
+						commandFiles.erase(commandFiles.begin() + atmIndex);
+						std::cout << "eof for file: " << atmIndex << std::endl;
+						std::cout << "num of files: " << commandFiles.size() << std::endl;
+						atmIndex--;
+						continue;
+
+					}
+					else
+					{
+						executeAtmOperation
+						(
+							account_vec,
+							command_sep,
+							atmThreads,
+							logger,
+							atmIndex,
+							globalLock
+						);
+					}
+
 				}
-				
+				for(atmIndex = 0; atmIndex < atmThreads.size(); atmIndex++)
+				{
+					pthread_join(atmThreads[atmIndex], NULL);
+				}
 			}
-			for(atmIndex = 0; atmIndex < atmThreads.size(); atmIndex++)
+			else
 			{
-				pthread_join(atmThreads[atmIndex], NULL);
+				// finish existing thraeds..
+				uint threadIndex;
+				
+				for(threadIndex = 0; threadIndex < threadsLst.size(); threadIndex++)
+				{
+					if(pthread_kill(threadsLst[atmIndex], 0) == ESRCH)
+					{
+						// send empty signal, check if thread is alive
+						threadsLst.erase(threadsLst.begin() + threadIndex);
+					}
+				}
 			}
+			
+			
+			atmThreads.clear();
 			sched_start = std::chrono::system_clock::now();
 			bankTimer++;
 			snapshotTimer++;

@@ -23,7 +23,9 @@ void * ATM::openAccout(void *args)
 	argsPtr->globalLock->leaveRead();
 	if(myAccindex != -1) {
 		argsPtr->logObj->logAccountOpen(ACCOUNT_EXISTS,args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	argsPtr->targetAccount->ID = argsPtr->ID;
 	argsPtr->targetAccount->password = argsPtr->password;
@@ -36,7 +38,9 @@ void * ATM::openAccout(void *args)
 		argsPtr->myAccounts->push_back(*argsPtr->targetAccount);
 		argsPtr->globalLock->leaveWrite();
 		log->logAccountOpen(SUCCESS, args);
-		return (void *) RET_SUCESS;
+		int *ret = new int();
+		*ret = RET_SUCESS;
+		return (void *) ret;
 	}
 
 	uint index;
@@ -50,7 +54,9 @@ void * ATM::openAccout(void *args)
 
 			argsPtr->globalLock->leaveWrite();
 			log->logAccountOpen(SUCCESS, argsPtr);
-			return (void *) RET_SUCESS;
+			int *ret = new int();
+			*ret = RET_SUCESS;
+			return (void *) ret;
 		}
 	}
 	argsPtr->globalLock->enterWrite();
@@ -58,7 +64,9 @@ void * ATM::openAccout(void *args)
 	(*argsPtr->myAccounts).push_back(*argsPtr->targetAccount);
 	argsPtr->globalLock->leaveWrite();
 	log->logAccountOpen(SUCCESS, argsPtr);
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 }
 
 
@@ -85,7 +93,9 @@ void *ATM::Deposit(void *args) {
 	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
 		argsPtr->logObj->accountDosentExists(args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 	
@@ -94,7 +104,9 @@ void *ATM::Deposit(void *args) {
 	if (check != argsPtr->password) {
 
 		argsPtr->logObj->logDeposit(WRONG_PASSWORD, argsPtr);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	
 
@@ -108,7 +120,9 @@ void *ATM::Deposit(void *args) {
 	argsPtr->myAccounts->at(index).accountLock->leaveWrite();
 	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logDeposit(SUCCESS, args);	
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 }
 
 void * ATM::Withdrew(void *args) {
@@ -121,7 +135,9 @@ void * ATM::Withdrew(void *args) {
 	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
 		argsPtr->logObj->accountDosentExists(args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
@@ -131,7 +147,9 @@ void * ATM::Withdrew(void *args) {
 	if (check != argsPtr->password) {
 		argsPtr->logObj->logWithdrew(WRONG_PASSWORD, args);
 		
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	// check current balance larger then withdrew amount
 	argsPtr->globalLock->enterRead();
@@ -144,7 +162,9 @@ void * ATM::Withdrew(void *args) {
 		argsPtr->globalLock->leaveRead();
 		argsPtr->logObj->logWithdrew(WITHDREW_OVERFLOW, args);
 		
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	// do withdrew
 	argsPtr->myAccounts->at(index).accountLock->leaveRead();
@@ -155,7 +175,9 @@ void * ATM::Withdrew(void *args) {
 	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logWithdrew(SUCCESS, args);
 
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 }
 
 //********************************************
@@ -174,7 +196,9 @@ void * ATM::Balance(void *args){
 	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
 		argsPtr->logObj->accountDosentExists(args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}	
 
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
@@ -182,7 +206,9 @@ void * ATM::Balance(void *args){
 	argsPtr->myAccounts->at(index).accountLock->leaveRead();
 	if (check != argsPtr->password) {
 		argsPtr->logObj->logBalance(WRONG_PASSWORD, args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	argsPtr->globalLock->enterRead();
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
@@ -191,7 +217,9 @@ void * ATM::Balance(void *args){
 	argsPtr->myAccounts->at(index).accountLock->leaveRead();
 	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logBalance(SUCCESS, args);
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 }
 
 
@@ -205,7 +233,9 @@ void * ATM::closeAccount(void *args) {
 	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
 		argsPtr->logObj->accountDosentExists(args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
@@ -215,7 +245,9 @@ void * ATM::closeAccount(void *args) {
 	if (check != argsPtr->password) {
 		// wrong password
 		argsPtr->logObj->logAccountClose(WRONG_PASSWORD, args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	
 	argsPtr->myAccounts->at(index).accountLock->enterRead();
@@ -228,7 +260,9 @@ void * ATM::closeAccount(void *args) {
 	argsPtr->myAccounts->erase(argsPtr->myAccounts->begin() + index);
 	argsPtr->globalLock->leaveWrite();
 	argsPtr->logObj->logAccountClose(SUCCESS, args);
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 
 }
 
@@ -248,7 +282,9 @@ void * ATM::Transfer(void *args){
 	if(argsPtr->ID == argsPtr->targetID) {
 		argsPtr->logObj->logTransfer(RET_FAILURE, args);
 		
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 
@@ -257,17 +293,23 @@ void * ATM::Transfer(void *args){
 
 	if(sourceIndex == -1) {
 		argsPtr->logObj->accountDosentExists(argsPtr);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	else if(targetIndex == -1)
 	{
 		// change id to log to the target id
 		argsPtr->ID = argsPtr->targetID;
 		argsPtr->logObj->accountDosentExists(argsPtr);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 	if(sourceIndex == targetIndex) {
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 	argsPtr->globalLock->enterRead();
@@ -278,13 +320,17 @@ void * ATM::Transfer(void *args){
 	// wrong password
 	if (check) {
 		argsPtr->logObj->logTransfer(WRONG_PASSWORD, args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 	// not enough money for transaction
 	else if (check2) {
 		argsPtr->logObj->logTransfer(WITHDREW_OVERFLOW, args);
-		return (void *) RET_FAILURE;
+		int *ret = new int();
+		*ret = RET_FAILURE;
+		return (void *) ret;
 	}
 
 	argsPtr->globalLock->enterRead();
@@ -308,7 +354,9 @@ void * ATM::Transfer(void *args){
 	argsPtr->logObj->logTransfer(SUCCESS, args);
 
 	
-	return (void *) RET_SUCESS;
+	int *ret = new int();
+	*ret = RET_SUCESS;
+	return (void *) ret;
 	
 }
 
