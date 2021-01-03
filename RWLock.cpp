@@ -1,39 +1,53 @@
 #include "RWLock.h"
-
+#include <iostream>
 
 RWLock::RWLock()
-{
-    this->readerLock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-    this->writerLock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(this->readerLock, NULL);
-    pthread_mutex_init(this->writerLock, NULL);
+{   
+    sem_init(&resource, 0, 1);
+    sem_init(&rmutex, 0 , 1);
+    sem_init(&serviceQueue, 0 , 1);
+    readersCount = 0;
 }
 
 RWLock::~RWLock()
 {
-    pthread_mutex_destroy(this->readerLock);
-    pthread_mutex_destroy(this->writerLock);
-    free(this->readerLock);
-    free(this->writerLock);
+    sem_destroy(&resource);
+    sem_destroy(&rmutex);
+    sem_destroy(&serviceQueue);
+}
+// read single element
+void RWLock::enterRead()
+{
+    sem_wait(&serviceQueue);
+    sem_wait(&rmutex);
+    readersCount++;
+    if (readersCount == 1)
+        sem_wait(&resource);
+
+    sem_post(&serviceQueue);
+    sem_post(&rmutex);
+
 }
 
-void RWLock::lockRead()
+void RWLock::leaveRead() 
 {
-    pthread_mutex_lock(this->readerLock);
+    sem_wait(&rmutex);     
+    readersCount--;
+    if(readersCount == 0)
+        sem_post(&resource);
+
+    sem_post(&rmutex);
 }
 
-void RWLock::unlockRead() 
+// write single element
+void RWLock::enterWrite()
 {
-    pthread_mutex_unlock(this->readerLock);
+    sem_wait(&serviceQueue);
+    sem_wait(&resource);
+    sem_post(&serviceQueue);
 }
 
-
-void RWLock::lockWrite()
+void RWLock::leaveWrite()
 {
-    pthread_mutex_lock(this->writerLock);
-}
-
-void RWLock::unlockWrite()
-{
-    pthread_mutex_unlock(this->writerLock);
+    sem_post(&resource);
 }

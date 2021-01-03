@@ -1,7 +1,7 @@
 //		ATM .cpp
 //********************************************
 #include "ATM.h"
-#define longest_cmd 300s
+#define longest_cmd 300
 
 
 // TODO: Handle account not in list
@@ -12,43 +12,52 @@ void ATM::readLine(std::string& command, std::fstream& commandFile)
 
 void * ATM::openAccout(void *args)
 {
+
 	// prologue
 	threadArgs *argsPtr = (threadArgs *)args;
 	Logger *log  = argsPtr->logObj;
-	RWLock *dataLock = argsPtr->dataLock;
-	//pthread_mutex_t *logLock = argsPtr->logLock; 
-
+	
 	// Here we will check for existing account with the same ID.
-
-	dataLock->lockRead();
-	for (account index : *argsPtr->myAccounts)
-	{
-		if (argsPtr->targetAccount->ID == index.ID)	{
-			//pthread_mutex_lock(logLock);
-			log->logAccountOpen(ACCOUNT_EXISTS, args);
-			////(logLock);
-			dataLock->unlockRead();
-			return (void *) RET_FAILURE;
-		}
-	}
-	dataLock->unlockRead();
-	// account with negative initial value. not sure if needed
-	/*
-	if (argsPtr->targetAccount->remainer < 0) {
-		//pthread_mutex_lock(logLock);
-		log->logAccountOpen(WITHDREW_OVERFLOW, args);
-		////(logLock);
+	argsPtr->globalLock->enterRead();
+	int myAccindex = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	argsPtr->globalLock->leaveRead();
+	if(myAccindex != -1) {
+		argsPtr->logObj->logAccountOpen(ACCOUNT_EXISTS,args);
 		return (void *) RET_FAILURE;
 	}
-	*/
-	// add new account to the account vector buffer.
-	dataLock->lockWrite();
-	(*argsPtr->myAccounts).push_back(*argsPtr->targetAccount);
-	dataLock->unlockWrite();
+	argsPtr->targetAccount->ID = argsPtr->ID;
+	argsPtr->targetAccount->password = argsPtr->password;
+	argsPtr->targetAccount->remainer = argsPtr->amount;
 	
-	//pthread_mutex_lock(logLock);
+	if((*argsPtr->myAccounts).size() == 0)
+	{
+		argsPtr->globalLock->enterWrite();
+		sleep(1);
+		argsPtr->myAccounts->push_back(*argsPtr->targetAccount);
+		argsPtr->globalLock->leaveWrite();
+		log->logAccountOpen(SUCCESS, args);
+		return (void *) RET_SUCESS;
+	}
+
+	uint index;
+	for (index = 0; index < argsPtr->myAccounts->size(); index++)
+	{
+		if( argsPtr->ID < (argsPtr->myAccounts->at(index)).ID )
+		{
+			argsPtr->globalLock->enterWrite();
+			sleep(1);
+			argsPtr->myAccounts->emplace(argsPtr->myAccounts->begin() + index, *argsPtr->targetAccount);
+
+			argsPtr->globalLock->leaveWrite();
+			log->logAccountOpen(SUCCESS, argsPtr);
+			return (void *) RET_SUCESS;
+		}
+	}
+	argsPtr->globalLock->enterWrite();
+	sleep(1);
+	(*argsPtr->myAccounts).push_back(*argsPtr->targetAccount);
+	argsPtr->globalLock->leaveWrite();
 	log->logAccountOpen(SUCCESS, argsPtr);
-	//pthread_mutex_lock(logLock);
 	return (void *) RET_SUCESS;
 }
 
@@ -66,79 +75,85 @@ void *ATM::Deposit(void *args) {
 	// prologue
 	threadArgs *argsPtr = (threadArgs *)args;
 	//Logger *log  = argsPtr->logObj;
-	RWLock *dataLock = argsPtr->dataLock;
-	account the_account;
 	//pthread_mutex_t *logLock = argsPtr->logLock; 
 
 	// Here we will check for existing account with the same ID.
 
-	dataLock->lockRead();
-	int index = accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
-	if(index == -1) {
-		argsPtr->dataLock->unlockRead();
-		return (void *) RET_FAILURE;
-	}
-	int check = the_account.password;
-	argsPtr->theAccount = &the_account;
-	argsPtr->dataLock->unlockRead();
-
-	if (check != argsPtr->password) {
-		//(argsPtr->logLock);
-		argsPtr->logObj->logDeposit(WRONG_PASSWORD, argsPtr);
-		//(argsPtr->logLock);
-		return (void *) RET_FAILURE;
-	}
-
-	argsPtr->dataLock->lockWrite();
-	argsPtr->theAccount->remainer += argsPtr->amount;
-	argsPtr->dataLock->unlockWrite();
-
-	//(argsPtr->logLock);
-	argsPtr->logObj->logDeposit(SUCCESS, args);
-	//(argsPtr->logLock);
 	
+	argsPtr->globalLock->enterRead();
+	int index = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	argsPtr->globalLock->leaveRead();
+	if(index == -1) {
+		argsPtr->logObj->accountDosentExists(args);
+		return (void *) RET_FAILURE;
+	}
+
+	
+	bool check = argsPtr->myAccounts->at(index).password;
+	
+	if (check != argsPtr->password) {
+
+		argsPtr->logObj->logDeposit(WRONG_PASSWORD, argsPtr);
+		return (void *) RET_FAILURE;
+	}
+	
+
+	argsPtr->globalLock->enterRead();
+	argsPtr->myAccounts->at(index).accountLock->enterWrite();
+	sleep(1);
+	argsPtr->targetAmount = argsPtr->myAccounts->at(index).remainer;
+	argsPtr->myAccounts->at(index).remainer += argsPtr->amount;
+	argsPtr->amount = argsPtr->myAccounts->at(index).remainer;
+
+	argsPtr->myAccounts->at(index).accountLock->leaveWrite();
+	argsPtr->globalLock->leaveRead();
+	argsPtr->logObj->logDeposit(SUCCESS, args);	
 	return (void *) RET_SUCESS;
 }
 
-
-//main will check if the account exists, before bothering the machine
 void * ATM::Withdrew(void *args) {
-	/*
-	 * reader + writer
-	 */
-	threadArgs *argsPtr = (threadArgs *)args;
-	account the_account;
+
+	threadArgs *argsPtr = (threadArgs *)args;	
+
 	
-	argsPtr->dataLock->lockRead();
-	int index = accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
+	argsPtr->globalLock->enterRead();
+	int index = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
-		argsPtr->dataLock->unlockRead();
+		argsPtr->logObj->accountDosentExists(args);
 		return (void *) RET_FAILURE;
 	}
-	int check = the_account.password;
-	argsPtr->theAccount = &the_account;
-	argsPtr->dataLock->unlockRead();
 	
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	int check = argsPtr->myAccounts->at(index).password;
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
+	// validate password
 	if (check != argsPtr->password) {
-		//(argsPtr->logLock);
 		argsPtr->logObj->logWithdrew(WRONG_PASSWORD, args);
-		//(argsPtr->logLock);
+		
 		return (void *) RET_FAILURE;
 	}
-	if(argsPtr->theAccount->remainer < argsPtr->amount) {
-		//(argsPtr->logLock);
+	// check current balance larger then withdrew amount
+	argsPtr->globalLock->enterRead();
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	sleep(1);
+	if(argsPtr->myAccounts->at(index).remainer < argsPtr->amount) {
+		account the_account = argsPtr->myAccounts->at(index);
+		argsPtr->theAccount = &the_account;
+		argsPtr->myAccounts->at(index).accountLock->leaveRead();
+		argsPtr->globalLock->leaveRead();
 		argsPtr->logObj->logWithdrew(WITHDREW_OVERFLOW, args);
-		//(argsPtr->logLock);
+		
 		return (void *) RET_FAILURE;
 	}
-
-
-	argsPtr->dataLock->lockWrite();
-	argsPtr->theAccount->remainer -= argsPtr->amount;
-	argsPtr->dataLock->unlockWrite();
-	//(argsPtr->logLock);
+	// do withdrew
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
+	argsPtr->myAccounts->at(index).accountLock->enterWrite();
+	argsPtr->myAccounts->at(index).remainer -= argsPtr->amount;
+	argsPtr->myAccounts->at(index).accountLock->leaveWrite();
+	argsPtr->targetAmount = argsPtr->myAccounts->at(index).remainer;
+	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logWithdrew(SUCCESS, args);
-	//(argsPtr->logLock);
 
 	return (void *) RET_SUCESS;
 }
@@ -153,61 +168,66 @@ void * ATM::Withdrew(void *args) {
 void * ATM::Balance(void *args){
 
 	threadArgs *argsPtr = (threadArgs *)args;
-	account the_account;
-	
-	argsPtr->dataLock->lockRead();
-	int index = accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
-	if(index == -1) {
-		argsPtr->dataLock->unlockRead();
-		return (void *) RET_FAILURE;
-	}
-	int check = the_account.password;
-	argsPtr->theAccount = &the_account;
-	argsPtr->dataLock->unlockRead();
 
+	argsPtr->globalLock->enterRead();
+	int index = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	argsPtr->globalLock->leaveRead();
+	if(index == -1) {
+		argsPtr->logObj->accountDosentExists(args);
+		return (void *) RET_FAILURE;
+	}	
+
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	int check = argsPtr->myAccounts->at(index).password;
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
 	if (check != argsPtr->password) {
-		//(argsPtr->logLock);
 		argsPtr->logObj->logBalance(WRONG_PASSWORD, args);
-		//(argsPtr->logLock);
 		return (void *) RET_FAILURE;
 	}
-	
-	//(argsPtr->logLock);
+	argsPtr->globalLock->enterRead();
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	sleep(1);
+	argsPtr->amount = argsPtr->myAccounts->at(index).remainer;
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
+	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logBalance(SUCCESS, args);
-	//(argsPtr->logLock);
 	return (void *) RET_SUCESS;
 }
 
 
 void * ATM::closeAccount(void *args) {
 
-	/*
-	 * WRITER
-	 */
-	threadArgs *argsPtr = (threadArgs *)args;
 
-	account the_account;
+	threadArgs *argsPtr = (threadArgs *)args;	
 	
-	argsPtr->dataLock->lockRead();
-	int index = accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
+	argsPtr->globalLock->enterRead();
+	int index = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	argsPtr->globalLock->leaveRead();
 	if(index == -1) {
-		argsPtr->dataLock->unlockRead();
+		argsPtr->logObj->accountDosentExists(args);
 		return (void *) RET_FAILURE;
 	}
-	int check = the_account.password;
 
-	argsPtr->theAccount = &the_account;
-	argsPtr->dataLock->unlockRead();
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	int check = argsPtr->myAccounts->at(index).password;
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
 
 	if (check != argsPtr->password) {
-		//(argsPtr->logLock);
+		// wrong password
 		argsPtr->logObj->logAccountClose(WRONG_PASSWORD, args);
-		//(argsPtr->logLock);
 		return (void *) RET_FAILURE;
 	}
+	
+	argsPtr->myAccounts->at(index).accountLock->enterRead();
+	argsPtr->amount = argsPtr->myAccounts->at(index).remainer;
+	argsPtr->myAccounts->at(index).accountLock->leaveRead();
 
-
-	(*argsPtr->myAccounts).erase((*argsPtr->myAccounts).begin() + index);
+	argsPtr->globalLock->enterWrite();
+	sleep(1);
+	
+	argsPtr->myAccounts->erase(argsPtr->myAccounts->begin() + index);
+	argsPtr->globalLock->leaveWrite();
+	argsPtr->logObj->logAccountClose(SUCCESS, args);
 	return (void *) RET_SUCESS;
 
 }
@@ -221,65 +241,90 @@ void * ATM::closeAccount(void *args) {
 //**************************************************************************************
 
 void * ATM::Transfer(void *args){
-
+	
 	threadArgs *argsPtr = (threadArgs *)args;
-
-	account the_account, target_account;
 	
-	argsPtr->dataLock->lockRead();
-	accountAvailible(*argsPtr->myAccounts, the_account, argsPtr->ID);
-	accountAvailible(*argsPtr->myAccounts, target_account, argsPtr->targetID);
-	bool check = the_account.password != argsPtr->password ? true : false;
-	argsPtr->theAccount = &the_account;
-	argsPtr->targetAccount = &target_account;
-	argsPtr->dataLock->unlockRead();
-
-	if (check) {
-		//(argsPtr->logLock);
-		argsPtr->logObj->logTransfer(WRONG_PASSWORD, args);
-		//(argsPtr->logLock);
-		return (void *) RET_FAILURE;
-	}
-
-	argsPtr->dataLock->lockRead();
-	check = argsPtr->theAccount->remainer < argsPtr->amount ? true : false;
-	argsPtr->dataLock->unlockRead();
-	
-	if (check) {
-
-		//(argsPtr->logLock);
-		argsPtr->logObj->logTransfer(WITHDREW_OVERFLOW, args);
-		//(argsPtr->logLock);
+	// transfer between same accounts
+	if(argsPtr->ID == argsPtr->targetID) {
+		argsPtr->logObj->logTransfer(RET_FAILURE, args);
 		
 		return (void *) RET_FAILURE;
 	}
 
-	argsPtr->dataLock->lockRead();
-	argsPtr->dataLock->lockWrite();
-	the_account.remainer -= argsPtr->amount;
-	target_account.remainer += argsPtr->amount;
+
+	int sourceIndex = accountAvailible(argsPtr->myAccounts, argsPtr->ID);
+	int targetIndex = accountAvailible(argsPtr->myAccounts, argsPtr->targetID);
+
+	if(sourceIndex == -1) {
+		argsPtr->logObj->accountDosentExists(argsPtr);
+		return (void *) RET_FAILURE;
+	}
+	else if(targetIndex == -1)
+	{
+		// change id to log to the target id
+		argsPtr->ID = argsPtr->targetID;
+		argsPtr->logObj->accountDosentExists(argsPtr);
+		return (void *) RET_FAILURE;
+	}
+	if(sourceIndex == targetIndex) {
+		return (void *) RET_FAILURE;
+	}
+
+	argsPtr->globalLock->enterRead();
+	bool check = argsPtr->myAccounts->at(sourceIndex).password != argsPtr->password ? true : false;
+	bool check2 = argsPtr->myAccounts->at(sourceIndex).remainer < argsPtr->amount ? true : false;
+	argsPtr->globalLock->leaveRead();
+
+	// wrong password
+	if (check) {
+		argsPtr->logObj->logTransfer(WRONG_PASSWORD, args);
+		return (void *) RET_FAILURE;
+	}
+
+	// not enough money for transaction
+	else if (check2) {
+		argsPtr->logObj->logTransfer(WITHDREW_OVERFLOW, args);
+		return (void *) RET_FAILURE;
+	}
+
+	argsPtr->globalLock->enterRead();
+	argsPtr->myAccounts->at(sourceIndex).accountLock->enterWrite();
+	argsPtr->myAccounts->at(targetIndex).accountLock->enterWrite();
 	
-	//(argsPtr->logLock);
+	sleep(1);
+	
+	argsPtr->myAccounts->at(sourceIndex).remainer -= argsPtr->amount;
+	
+
+	argsPtr->myAccounts->at(targetIndex).remainer += argsPtr->amount;
+	
+	account the_account = argsPtr->myAccounts->at(sourceIndex);
+	account target_account = argsPtr->myAccounts->at(sourceIndex);
+	argsPtr->theAccount = &the_account;
+	argsPtr->targetAccount = &target_account;
+	argsPtr->myAccounts->at(targetIndex).accountLock->leaveWrite();
+	argsPtr->myAccounts->at(sourceIndex).accountLock->leaveWrite();
+	argsPtr->globalLock->leaveRead();
 	argsPtr->logObj->logTransfer(SUCCESS, args);
-	//(argsPtr->logLock);
+
 	
-	argsPtr->dataLock->unlockRead();
-	argsPtr->dataLock->unlockWrite();
 	return (void *) RET_SUCESS;
+	
 }
 
-int ATM::accountAvailible(std::vector<account>& account_vec, account& targetAcc, int ID) {
+int inline ATM::accountAvailible(std::vector<account> *account_vec, int ID) {
 
+	
 	unsigned long accIndex;
+	uint size = account_vec->size();
 
-	for (accIndex = 0; accIndex < account_vec.size() ; accIndex++)
+	for (accIndex = 0; accIndex < size ; accIndex++)
 	{
-		if(ID == account_vec.at(accIndex).ID) {
-			targetAcc = account_vec.at(accIndex);
+		if(ID == account_vec->at(accIndex).ID) {
 			return accIndex;
 		}
 	}
-
+	
 	return -1;
 	
 }

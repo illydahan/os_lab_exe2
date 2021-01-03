@@ -15,9 +15,10 @@
 
 class ATM {
 
+
 public:
 	static void readLine(std::string& command, std::fstream& commandFile);
-	static int accountAvailible(std::vector<account>& account_vec, account& targetAcc, int ID);
+	static int accountAvailible(std::vector<account> *account_vec, int ID);
 	// Pthread compatible function that perform varius atm operations
 	static void *openAccout(void *args);
 	static void *Deposit(void *args);

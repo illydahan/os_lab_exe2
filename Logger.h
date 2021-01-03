@@ -23,10 +23,8 @@ private:
 
 public:
     // create log file and initilize stream
-    Logger(std::string logFilePath);
+    Logger();
     ~Logger();
-
-    // lock setter
 
     // Methods that will log varius operations that happend during runtime.
     void logAccountOpen(int status, void *parms);
@@ -37,6 +35,8 @@ public:
     void logTransfer(int status, void *parms);
     void accountDosentExists(void *parms);
     void accountWrongPassword(void *parms);
+    void logBankOperation(int tax_percent, int amount, int accountID);
+	static void padPassword(int password, char padded_pass []);
 };
 
 
@@ -44,18 +44,33 @@ typedef struct account {
 	int ID;
 	int password;
 	int remainer;
+	RWLock * accountLock;
 } account;
 
 typedef struct threadArgs {
 	std::vector<account> *myAccounts;
 	account *theAccount;
 	account *targetAccount;
-	RWLock *dataLock;
 	pthread_mutex_t *logLock;
 	Logger *logObj;
+	RWLock *globalLock; // will lock all the accounts
 	int amount;
 	int password;
 	int ID;
 	int targetID;
+	int targetAmount;
 	int atmID;
 } threadArgs;
+
+typedef struct BankOpArgs {
+	std::vector<account> *accounts_vec;
+	uint *bankAccount;
+	RWLock *globalLock;
+	Logger *logObj;
+} BankOpArgs;
+
+typedef struct snapshotArgs{
+	std::vector<account> *accounts_vec;
+	RWLock *globalLock;
+	uint *bankBalance;
+} snapshotArgs;

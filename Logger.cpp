@@ -2,7 +2,7 @@
 
 
 // create log file and initilize stream
-Logger::Logger(std::string logFilePath)
+Logger::Logger()
 {
     // get the current working directory
     char cwd[PATH_MAX];
@@ -28,14 +28,14 @@ void Logger::accountDosentExists(void *parms)
 {
     threadArgs *argsPtr = (threadArgs *)parms;
     
-    logFileStream << "Error " << argsPtr->atmID << ": Your transaction failed – account id " << argsPtr->targetAccount->ID;
+    logFileStream << "Error " << argsPtr->atmID << ": Your transaction failed – account id " << argsPtr->ID;
     logFileStream << " does not exist\n";
 }
 
 void Logger::accountWrongPassword(void *parms) 
 {
     threadArgs *argsPtr = (threadArgs *)parms;
-    logFileStream << "Error" <<argsPtr->atmID << " : Your transaction failed –password for account id ";
+    logFileStream << "Error " <<argsPtr->atmID << ": Your transaction failed – password for account id ";
     logFileStream << argsPtr->ID << " is incorrect\n";
 }
 
@@ -47,13 +47,15 @@ void Logger::logAccountOpen(int status, void *parms)
     std::string logMsg;
     switch (status)
     {
-    case ACCOUNT_EXISTS:
-        accountDosentExists(parms);
+    case ACCOUNT_EXISTS:    
+        logFileStream << "Error " << argsPtr->atmID << ": Your transaction failed – account id " << argsPtr->ID;
+        logFileStream << " already exist's\n";
+        break;
         
     case SUCCESS:
-        logFileStream << argsPtr->atmID << " : New account id is " << argsPtr->targetAccount->ID;
-        logFileStream << " with password " << argsPtr->targetAccount->password << " and initial balance ";
-        logFileStream << argsPtr->targetAccount->remainer << std::endl;
+        logFileStream << argsPtr->atmID << " : New account id is " << argsPtr->ID;
+        logFileStream << " with password " << argsPtr->password << " and initial balance ";
+        logFileStream << argsPtr->amount << std::endl;
         break;
     
     default:
@@ -74,8 +76,8 @@ void Logger::logDeposit(int status, void *parms)
         accountWrongPassword(parms);
         break;
     case SUCCESS:
-        logFileStream << argsPtr->atmID << ": Account ";
-        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->theAccount->remainer;
+        logFileStream << argsPtr->atmID << " : Account ";
+        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->targetAmount;
         logFileStream << " after " << argsPtr->amount << " $ was deposited\n";
         break;
     default:
@@ -97,13 +99,13 @@ void Logger::logWithdrew(int status, void *parms)
 
     case WITHDREW_OVERFLOW:
         logFileStream << "Error " << argsPtr->atmID <<": Your transaction failed ";
-        logFileStream <<"– account id " <<argsPtr->theAccount->ID << " balance is lower than";
+        logFileStream <<"– account id " <<argsPtr->ID << " balance is lower than ";
         logFileStream <<argsPtr->amount << "\n";
         break;
 
     case SUCCESS:
-        logFileStream << argsPtr->atmID << ": Account ";
-        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->theAccount->remainer;
+        logFileStream << argsPtr->atmID << " : Account ";
+        logFileStream <<  argsPtr->ID<<" new balance is " << argsPtr->targetAmount;
         logFileStream << " after " << argsPtr->amount << " $ was withdrew\n";
         break;
 
@@ -126,7 +128,7 @@ void Logger::logBalance(int status, void *parms)
 
     case SUCCESS:
         logFileStream << argsPtr->atmID <<" : Account "<< argsPtr->ID;
-        logFileStream << " balance is " << argsPtr->theAccount->remainer << "\n";
+        logFileStream << " balance is " << argsPtr->amount << "\n";
         break;
 
     default:
@@ -144,10 +146,11 @@ void Logger::logAccountClose(int status, void *parms)
     {
     case WRONG_PASSWORD:
         accountWrongPassword(parms);
+        break;
     
     case SUCCESS:
-        logFileStream << argsPtr->atmID << ": Account " << argsPtr->ID << " is now closed. Balance was ";
-        logFileStream << argsPtr->theAccount->remainer << " \n";
+        logFileStream << argsPtr->atmID << " : Account " << argsPtr->ID << " is now closed. Balance was ";
+        logFileStream << argsPtr->amount << " \n";
         break;
     
     default:
@@ -165,14 +168,15 @@ void Logger::logTransfer(int status, void *parms)
     {
     case WRONG_PASSWORD:
         accountWrongPassword(parms);
+        break;
     
     case WITHDREW_OVERFLOW:
-        logFileStream <<"Error " << ": Your transaction failed – account id ";
-        logFileStream << argsPtr->theAccount->ID <<" balance is lower than " << argsPtr->amount << " \n";
+        logFileStream <<"Error " << argsPtr->atmID<< " : Your transaction failed – account id ";
+        logFileStream << argsPtr->ID <<" balance is lower than " << argsPtr->amount << " \n";
         break;
     
     case SUCCESS:
-        logFileStream <<argsPtr->atmID <<": Transfer "<< argsPtr->amount;
+        logFileStream <<argsPtr->atmID <<" : Transfer "<< argsPtr->amount;
         logFileStream << " from account " << argsPtr->theAccount->ID <<" to account ";
         logFileStream << argsPtr->theAccount->ID << " new account balance is ";
         logFileStream << argsPtr->theAccount->remainer << " new target account balance is  ";
@@ -185,4 +189,32 @@ void Logger::logTransfer(int status, void *parms)
     pthread_mutex_unlock(loggerLock);
 }
 
+void Logger::logBankOperation(int tax_percent, int amount, int accountID) 
+{
+    pthread_mutex_lock(loggerLock);
 
+    logFileStream << "Bank: commision of " << tax_percent << "%";
+    logFileStream << " were charged, the bank gained ";
+    logFileStream << amount << " $" << " from account " << accountID;
+    logFileStream << "\n"; 
+    pthread_mutex_unlock(loggerLock);
+}
+
+// we assume password length of 4;
+// todo: check
+void Logger::padPassword(int password, char padded_pass []) 
+{
+	if(	password / 10 == 0) {
+		sprintf(padded_pass, "000%d", password); 
+	}
+	else if (password / 100 == 0) {
+		sprintf(padded_pass, "00%d", password);
+	}
+	else if(password / 1000 == 0) {
+		sprintf(padded_pass, "0%d", password);
+	}
+    else
+    {
+        sprintf(padded_pass, "%d", password);
+    }
+}

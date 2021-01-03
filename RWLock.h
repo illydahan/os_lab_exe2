@@ -1,12 +1,17 @@
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <queue>
 
-
+// monitor class for Reader-Writer lock ADT.
+// should be be singelton (i.e one instance per process).
 class RWLock {
 
 private:
-    pthread_mutex_t *readerLock;
-    pthread_mutex_t *writerLock;
+    sem_t resource;
+    sem_t rmutex;
+    sem_t serviceQueue;
+    int readersCount;
 
 public:
 
@@ -15,15 +20,11 @@ public:
     
     void initLocks();
     // reader locks operations
-    void lockRead();
-    void unlockRead();
+    void enterRead();
+    void leaveRead();
 
     // writers locks operations
-    void lockWrite();
-    void unlockWrite();
-    
-    unsigned int readerCounter;
-    // should no use this 
-    unsigned int writersCounter;
+    void enterWrite();
+    void leaveWrite();
 
 };
